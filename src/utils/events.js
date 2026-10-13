@@ -742,7 +742,22 @@ const doubleClickControls = function (e) {
                     ) + 1;
                 // Until this
                 const x2 = libraryBase.jspreadsheet.current.highlighted[libraryBase.jspreadsheet.current.highlighted.length - 1].element.getAttribute('data-x');
-                const y2 = libraryBase.jspreadsheet.current.records.length - 1;
+                var y2 = libraryBase.jspreadsheet.current.records.length - 1;
+
+                // Find the last row with data in any column
+                var last_row_with_data = y1;
+                for (let row = y1; row <= y2; row++) {
+                    for (let col = 0; col < libraryBase.jspreadsheet.current.options.columns.length; col++) {
+                        const cellValue = libraryBase.jspreadsheet.current.getValueFromCoords(col, row);
+                        if (cellValue !== null && cellValue !== '' && cellValue) {
+                            last_row_with_data = Math.max(last_row_with_data, row);
+                        }
+                    }
+                }
+
+                if (y1 < last_row_with_data) {
+                    y2 = Math.min(last_row_with_data, y2);
+                }
                 // Execute copy
                 copyData.call(
                     libraryBase.jspreadsheet.current,

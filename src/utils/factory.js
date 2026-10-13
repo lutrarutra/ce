@@ -105,7 +105,7 @@ const createWorksheets = async function (spreadsheet, options, el) {
             await buildWorksheet.call(spreadsheet.worksheets[i]);
         }
     } else {
-        throw new Error('JSS: worksheets are not defined');
+        // throw new Error('JSS: worksheets are not defined');
     }
 };
 

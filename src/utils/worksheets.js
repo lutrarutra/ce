@@ -208,7 +208,7 @@ const createTable = function () {
     // Textarea helper
     obj.textarea = document.createElement('textarea');
     obj.textarea.className = 'jss_textarea';
-    obj.textarea.id = 'jss_textarea';
+    // obj.textarea.id = 'jss_textarea';
     obj.textarea.tabIndex = '-1';
     obj.textarea.ariaHidden = 'true';
 
