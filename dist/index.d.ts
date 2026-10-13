@@ -140,6 +140,12 @@ declare namespace jspreadsheet {
         readOnly?: boolean;
 
         /**
+         * Ways to order this column, offered in the context menu as "Order by {title} ascending/descending" instead
+         * of "Order ascending/descending".
+         */
+        sortings?: { title: string; sorting: (order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number }[];
+
+        /**
          * Defines a modification that must be made to a cell value before it is displayed in the spreadsheet.
          * @param cell - Cell whose value has changed.
          * @param value - New value.
@@ -406,6 +412,18 @@ declare namespace jspreadsheet {
             x: string | number | null,
             y: string | number | null
         ) => ContextMenuItem[] | null | undefined;
+
+        /**
+         * Asks for the text of the default context menu actions (column name, comments) instead of the browser
+         * prompt, e.g. with a dialog.
+         * @param instance - Instance of the worksheet the menu was opened on.
+         * @param request - The action, the label to show, the current value and the cell or column it is for.
+         * @returns The text, or null when the dialog was cancelled.
+         */
+        prompt?: (
+            instance: WorksheetInstance,
+            request: { action: 'insertColumn' | 'renameColumn' | 'comments'; message: string; value: string; x: number; y?: number }
+        ) => string | null | Promise<string | null>;
 
         /**
          * Enable the formula debug notices.
@@ -1188,6 +1206,19 @@ declare namespace jspreadsheet {
         tableWidth?: string | number;
 
         /**
+         * Keep the index column (row numbers) visible when scrolling horizontally.
+         * @default false
+         */
+        stickyIndex?: boolean;
+
+        /**
+         * Stretch the columns to fill the width of the worksheet. The column widths are the minimum and the
+         * remaining space is shared between the columns proportionally to their width.
+         * @default false
+         */
+        stretchColumns?: boolean;
+
+        /**
          * If true, cell contents may overflow over empty cells.
          * @default false
          */
@@ -1914,8 +1945,9 @@ declare namespace jspreadsheet {
          * This method returns false if the "This action will destroy any existing merged cells. Are you sure?" dialog receives a negative response, or returns true if the sort is successful.
          * @param column - Column index. If the value of this parameter is less than 0, the method returns false and does not perform sorting.
          * @param order - Sorting direction. 0 for ascending and 1 for descending.
+         * @param sorting - Sorting function for this call instead of {@link SpreadsheetOptions.sorting}.
          */
-        orderBy: (column: number, order: 0 | 1) => boolean | undefined;
+        orderBy: (column: number, order: 0 | 1, sorting?: (order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number) => boolean | undefined;
 
         /**
          * Go to page. Valid only when {@link WorksheetOptions.pagination} is true.

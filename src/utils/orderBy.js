@@ -83,9 +83,9 @@ export const updateOrder = function (rows) {
 };
 
 /**
- * Sort data and reload table
+ * Sort data and reload table, with the sorting option or the given sorting function
  */
-export const orderBy = function (column, order) {
+export const orderBy = function (column, order, sorting) {
     const obj = this;
 
     if (column >= 0) {
@@ -150,7 +150,7 @@ export const orderBy = function (column, order) {
             };
         }
 
-        temp = temp.sort(obj.parent.config.sorting(order));
+        temp = temp.sort((sorting || obj.parent.config.sorting)(order));
 
         // Save history
         const newValue = [];

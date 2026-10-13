@@ -290,6 +290,8 @@ export const insertColumn = function (mixed, columnNumber, insertBefore, propert
         // Remove table references
         updateTableReferences.call(obj);
 
+        fitColumns.call(obj);
+
         // Events
         dispatch.call(obj, 'oninsertcolumn', obj, columns);
     }
@@ -532,6 +534,8 @@ export const deleteColumn = function (columnNumber, numOfColumns) {
                 // Update table references
                 updateTableReferences.call(obj);
 
+                fitColumns.call(obj);
+
                 // Delete
                 dispatch.call(obj, 'ondeletecolumn', obj, removedColumns);
             }
@@ -576,6 +580,12 @@ export const setWidth = function (column, width, oldWidth) {
     const obj = this;
 
     if (width) {
+        // History and events keep the requested width, which is converted again on undo and redo
+        const newWidth = width;
+        if (obj.options.stretchColumns) {
+            width = getStretchedMinWidth(obj, column, width);
+        }
+
         if (Array.isArray(column)) {
             // Oldwidth
             if (!oldWidth) {
@@ -623,15 +633,131 @@ export const setWidth = function (column, width, oldWidth) {
             action: 'setWidth',
             column: column,
             oldValue: oldWidth,
-            newValue: width,
+            newValue: newWidth,
         });
 
+        fitColumns.call(obj);
+
         // On resize column
-        dispatch.call(obj, 'onresizecolumn', obj, column, width, oldWidth);
+        dispatch.call(obj, 'onresizecolumn', obj, column, newWidth, oldWidth);
 
         // Update corner position
         updateCornerPosition.call(obj);
     }
+};
+
+// Configured width of a column, the minimum width when the columns are stretched
+const getMinWidth = function (obj, column) {
+    const options = obj.options.columns && obj.options.columns[column];
+    return parseInt((options && options.width) || obj.options.defaultColWidth) || 100;
+};
+
+const isColumnVisible = function (obj, column) {
+    return obj.cols[column].colElement.style.display !== 'none';
+};
+
+// Width available to the data columns, 0 while the worksheet is hidden
+const getAvailableWidth = function (obj) {
+    if (!obj.content.clientWidth) {
+        return 0;
+    }
+
+    const contentStyle = getComputedStyle(obj.content);
+    const tableStyle = getComputedStyle(obj.table);
+    const index = obj.colgroupContainer.children[0];
+    const indexWidth = getComputedStyle(index).display === 'none' ? 0 : parseInt(index.getAttribute('width')) || 0;
+
+    // clientWidth is rounded, a column one pixel too wide would show a horizontal scrollbar
+    return (
+        Math.floor(obj.content.getBoundingClientRect().width) -
+        (obj.content.offsetWidth - obj.content.clientWidth) -
+        parseFloat(contentStyle.paddingLeft) -
+        parseFloat(contentStyle.paddingRight) -
+        parseFloat(tableStyle.borderLeftWidth) -
+        parseFloat(tableStyle.borderRightWidth) -
+        indexWidth
+    );
+};
+
+/**
+ * Minimum width(s) that make stretched column(s) as wide as the given width(s), so that a column resized by
+ * the user ends up where it was dropped and the other columns share what is left. Undo restores the previous
+ * width the same way.
+ */
+const getStretchedMinWidth = function (obj, column, width) {
+    const columns = Array.isArray(column) ? column : [column];
+    const widths = columns.map((c, i) => parseInt(Array.isArray(width) ? width[i] : width));
+    const available = getAvailableWidth(obj);
+
+    let resized = 0;
+    let others = 0;
+    for (let i = 0; i < obj.cols.length; i++) {
+        if (!isColumnVisible(obj, i)) {
+            continue;
+        }
+        const position = columns.indexOf(i);
+        if (position === -1) {
+            others += getMinWidth(obj, i);
+        } else {
+            resized += widths[position];
+        }
+    }
+
+    // Nothing to stretch: the widths are the minimum widths
+    if (!available || !others || resized + others >= available) {
+        return width;
+    }
+
+    const minWidths = widths.map((w) => Math.max(1, Math.round((w * others) / (available - resized))));
+    return Array.isArray(column) ? minWidths : minWidths[0];
+};
+
+/**
+ * Stretch the columns to fill the width of the worksheet (option stretchColumns). The configured column
+ * widths are the minimum: when they add up to less than the available width, the remaining space is shared
+ * between the visible columns proportionally to their width.
+ */
+export const fitColumns = function () {
+    const obj = this;
+
+    if (!obj.options.stretchColumns || !obj.content || !obj.cols) {
+        return;
+    }
+
+    const available = getAvailableWidth(obj);
+    if (!available) {
+        return;
+    }
+
+    const width = [];
+    const visible = [];
+    let total = 0;
+    for (let i = 0; i < obj.cols.length; i++) {
+        width[i] = getMinWidth(obj, i);
+        if (isColumnVisible(obj, i)) {
+            visible.push(i);
+            total += width[i];
+        }
+    }
+
+    const space = available - total;
+    if (space > 0) {
+        let remaining = space;
+        for (let j = 0; j < visible.length; j++) {
+            const i = visible[j];
+            const extra = j === visible.length - 1 ? remaining : Math.floor((space * width[i]) / total);
+            width[i] += extra;
+            remaining -= extra;
+        }
+    }
+
+    for (let i = 0; i < obj.cols.length; i++) {
+        if (parseInt(obj.cols[i].colElement.getAttribute('width')) !== width[i]) {
+            obj.cols[i].colElement.setAttribute('width', width[i]);
+        }
+    }
+
+    updateCornerPosition.call(obj);
 };
 
 /**
@@ -661,6 +787,8 @@ export const showColumn = function (colNumber) {
     if (obj.options.footers) {
         setFooter.call(obj);
     }
+
+    fitColumns.call(obj);
 
     obj.resetSelection();
 };
@@ -692,6 +820,8 @@ export const hideColumn = function (colNumber) {
     if (obj.options.footers) {
         setFooter.call(obj);
     }
+
+    fitColumns.call(obj);
 
     obj.resetSelection();
 };

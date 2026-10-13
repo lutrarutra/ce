@@ -6,6 +6,7 @@ import { parseCSV } from './helpers.js';
 import {
     createCellHeader,
     deleteColumn,
+    fitColumns,
     getColumnData,
     getNumberOfColumns,
     getWidth,
@@ -76,12 +77,22 @@ const createTable = function () {
     // Create table container
     obj.content = document.createElement('div');
     obj.content.classList.add('jss_content');
+    obj.lastScrollLeft = 0;
+    obj.lastScrollTop = 0;
     obj.content.onscroll = function (e) {
         scrollControls.call(obj, e);
     };
     obj.content.onwheel = function (e) {
         wheelControls.call(obj, e);
     };
+
+    // Columns follow the width of the worksheet
+    if (obj.options.stretchColumns && typeof ResizeObserver !== 'undefined') {
+        obj.resizeObserver = new ResizeObserver(function () {
+            fitColumns.call(obj);
+        });
+        obj.resizeObserver.observe(obj.content);
+    }
 
     // Search
     const searchContainer = document.createElement('div');
@@ -193,6 +204,10 @@ const createTable = function () {
 
     if (!obj.options.textOverflow) {
         obj.table.classList.add('jss_overflow');
+    }
+
+    if (obj.options.stickyIndex) {
+        obj.table.classList.add('jss_sticky_index');
     }
 
     // Spreadsheet corner

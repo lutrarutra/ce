@@ -807,8 +807,17 @@ const doubleClickControls = function (e) {
     }
 };
 
+// Inputs outside the spreadsheet, e.g. in a dialog it opened
+const isOutsideInput = function (element) {
+    return (
+        element instanceof HTMLElement &&
+        (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName)) &&
+        !libraryBase.jspreadsheet.current.parent.element.contains(element)
+    );
+};
+
 const pasteControls = function (e) {
-    if (libraryBase.jspreadsheet.current && libraryBase.jspreadsheet.current.selectedCell) {
+    if (libraryBase.jspreadsheet.current && libraryBase.jspreadsheet.current.selectedCell && !(e && isOutsideInput(e.target))) {
         if (!libraryBase.jspreadsheet.current.edition) {
             if (libraryBase.jspreadsheet.current.options.editable != false) {
                 if (e && e.clipboardData) {
@@ -882,6 +891,20 @@ const getRole = function (element) {
     return 'applications';
 };
 
+/**
+ * Asks for a text with the prompt option, or the browser prompt without it, and calls back with the answer unless the
+ * dialog was cancelled
+ */
+const askText = function (worksheet, request, callback) {
+    const prompt = worksheet.parent.config.prompt;
+    const answer = typeof prompt === 'function' ? prompt(worksheet, request) : window.prompt(request.message, request.value);
+    Promise.resolve(answer).then(function (value) {
+        if (value !== null && value !== undefined) {
+            callback(value);
+        }
+    });
+};
+
 const defaultContextMenu = function (worksheet, x, y, role) {
     const items = [];
 
@@ -891,7 +914,9 @@ const defaultContextMenu = function (worksheet, x, y, role) {
             items.push({
                 title: jSuites.translate('Insert a new column before'),
                 onclick: function () {
-                    worksheet.insertColumn(1, parseInt(x), 1);
+                    askText(worksheet, { action: 'insertColumn', message: jSuites.translate('Column name'), value: '', x: parseInt(x) }, function (title) {
+                        worksheet.insertColumn(1, parseInt(x), 1, [{ title }]);
+                    });
                 },
             });
         }
@@ -900,7 +925,9 @@ const defaultContextMenu = function (worksheet, x, y, role) {
             items.push({
                 title: jSuites.translate('Insert a new column after'),
                 onclick: function () {
-                    worksheet.insertColumn(1, parseInt(x), 0);
+                    askText(worksheet, { action: 'insertColumn', message: jSuites.translate('Column name'), value: '', x: parseInt(x) + 1 }, function (title) {
+                        worksheet.insertColumn(1, parseInt(x), 0, [{ title }]);
+                    });
                 },
             });
         }
@@ -920,11 +947,13 @@ const defaultContextMenu = function (worksheet, x, y, role) {
             items.push({
                 title: jSuites.translate('Rename this column'),
                 onclick: function () {
-                    const oldValue = worksheet.getHeader(x);
-
-                    const newValue = prompt(jSuites.translate('Column name'), oldValue);
-
-                    worksheet.setHeader(x, newValue);
+                    askText(
+                        worksheet,
+                        { action: 'renameColumn', message: jSuites.translate('Column name'), value: worksheet.getHeader(x), x: parseInt(x) },
+                        function (title) {
+                            worksheet.setHeader(x, title);
+                        }
+                    );
                 },
             });
         }
@@ -934,18 +963,38 @@ const defaultContextMenu = function (worksheet, x, y, role) {
             // Line
             items.push({ type: 'line' });
 
-            items.push({
-                title: jSuites.translate('Order ascending'),
-                onclick: function () {
-                    worksheet.orderBy(x, 0);
-                },
-            });
-            items.push({
-                title: jSuites.translate('Order descending'),
-                onclick: function () {
-                    worksheet.orderBy(x, 1);
-                },
-            });
+            // A column can be ordered in several ways, e.g. by the name or by the id in its values
+            const sortings = worksheet.options.columns && worksheet.options.columns[x] && worksheet.options.columns[x].sortings;
+
+            if (sortings && sortings.length) {
+                sortings.forEach(function (sorting) {
+                    items.push({
+                        title: jSuites.translate('Order by') + ' ' + sorting.title + ' ' + jSuites.translate('ascending'),
+                        onclick: function () {
+                            worksheet.orderBy(x, 0, sorting.sorting);
+                        },
+                    });
+                    items.push({
+                        title: jSuites.translate('Order by') + ' ' + sorting.title + ' ' + jSuites.translate('descending'),
+                        onclick: function () {
+                            worksheet.orderBy(x, 1, sorting.sorting);
+                        },
+                    });
+                });
+            } else {
+                items.push({
+                    title: jSuites.translate('Order ascending'),
+                    onclick: function () {
+                        worksheet.orderBy(x, 0);
+                    },
+                });
+                items.push({
+                    title: jSuites.translate('Order descending'),
+                    onclick: function () {
+                        worksheet.orderBy(x, 1);
+                    },
+                });
+            }
         }
     }
 
@@ -986,10 +1035,15 @@ const defaultContextMenu = function (worksheet, x, y, role) {
             items.push({
                 title: jSuites.translate(title ? 'Edit comments' : 'Add comments'),
                 onclick: function () {
-                    const comment = prompt(jSuites.translate('Comments'), title);
-                    if (comment) {
-                        worksheet.setComments(getCellNameFromCoords(x, y), comment);
-                    }
+                    askText(
+                        worksheet,
+                        { action: 'comments', message: jSuites.translate('Comments'), value: title, x: parseInt(x), y: parseInt(y) },
+                        function (comment) {
+                            if (comment) {
+                                worksheet.setComments(getCellNameFromCoords(x, y), comment);
+                            }
+                        }
+                    );
                 },
             });
 
@@ -1294,7 +1348,7 @@ const isCtrl = function (e) {
 };
 
 const keyDownControls = function (e) {
-    if (libraryBase.jspreadsheet.current) {
+    if (libraryBase.jspreadsheet.current && !isOutsideInput(e.target)) {
         if (libraryBase.jspreadsheet.current.edition) {
             if (e.which == 27) {
                 // Escape
@@ -1615,9 +1669,15 @@ export const scrollControls = function (e) {
         updateFreezePosition.call(obj);
     }
 
+    // Only react to movement that has not been handled yet: scroll events are dispatched asynchronously,
+    // so a scroll done by openEditor (scrollCellIntoView) arrives after the editor is already open
+    const moved = obj.content.scrollLeft != obj.lastScrollLeft || obj.content.scrollTop != obj.lastScrollTop;
+    obj.lastScrollLeft = obj.content.scrollLeft;
+    obj.lastScrollTop = obj.content.scrollTop;
+
     // Close editor
     if (obj.options.lazyLoading == true || obj.options.tableOverflow == true) {
-        if (obj.edition && e.target.className.substr(0, 9) != 'jdropdown') {
+        if (moved && obj.edition && e.target.className.substr(0, 9) != 'jdropdown') {
             closeEditor.call(obj, obj.edition[0], true);
         }
     }

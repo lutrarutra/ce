@@ -3,6 +3,83 @@ import jSuites from 'jsuites';
 import dispatch from './dispatch.js';
 import { getMask, isFormula, updateCell } from './internal.js';
 import { setHistory } from './history.js';
+import { getStickyIndexWidth } from './freeze.js';
+
+/**
+ * Scroll the content so the cell is fully visible, also not covered by the sticky header or index column.
+ * The resulting scroll event is ignored by scrollControls.
+ *
+ * @param object cell
+ * @return void
+ */
+const scrollCellIntoView = function (cell) {
+    const obj = this;
+    const content = obj.content;
+
+    const contentRect = content.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const left = contentRect.left + content.clientLeft + getStickyIndexWidth.call(obj);
+    const top = contentRect.top + content.clientTop + obj.thead.getBoundingClientRect().height;
+    const right = contentRect.left + content.clientLeft + content.clientWidth;
+    const bottom = contentRect.top + content.clientTop + content.clientHeight;
+
+    if (cellRect.left < left) {
+        content.scrollLeft -= left - cellRect.left;
+    } else if (cellRect.right > right) {
+        content.scrollLeft += Math.min(cellRect.right - right, cellRect.left - left);
+    }
+    if (cellRect.top < top) {
+        content.scrollTop -= top - cellRect.top;
+    } else if (cellRect.bottom > bottom) {
+        content.scrollTop += Math.min(cellRect.bottom - bottom, cellRect.top - top);
+    }
+
+    obj.lastScrollLeft = content.scrollLeft;
+    obj.lastScrollTop = content.scrollTop;
+};
+
+/**
+ * Keep a dropdown editor within the content: limit its width to the visible content, wrap long options
+ * instead of cutting them off and open towards the left when it would overflow the right edge
+ *
+ * @param object cell
+ * @param object el - jSuites dropdown element
+ * @return void
+ */
+const alignDropdownToContent = function (cell, el) {
+    const obj = this;
+    const container = el.querySelector('.jdropdown-container');
+    if (!container) {
+        return;
+    }
+
+    // Fix the width before allowing options to wrap, otherwise the container shrinks to the space left of it
+    const maxWidth = Math.min(parseFloat(container.style.maxWidth) || Infinity, obj.content.clientWidth);
+    container.style.width = Math.min(container.getBoundingClientRect().width, maxWidth) + 'px';
+    container.style.maxWidth = maxWidth + 'px';
+
+    const items = container.querySelectorAll('.jdropdown-item');
+    for (let i = 0; i < items.length; i++) {
+        items[i].style.whiteSpace = 'normal';
+    }
+
+    const contentRect = obj.content.getBoundingClientRect();
+    const right = contentRect.left + obj.content.clientLeft + obj.content.clientWidth;
+    const containerRect = container.getBoundingClientRect();
+
+    if (containerRect.right <= right) {
+        return;
+    }
+
+    if (container.style.position == 'fixed') {
+        // Align the right edges, but never past the left edge of the content
+        const cellRect = cell.getBoundingClientRect();
+        container.style.left = Math.max(contentRect.left, cellRect.right - containerRect.width) + 'px';
+    } else {
+        container.style.left = 'auto';
+        container.style.right = '0';
+    }
+};
 
 /**
  * Open the editor
@@ -19,6 +96,12 @@ export const openEditor = function (cell, empty, e) {
 
     // On edition start
     dispatch.call(obj, 'oneditionstart', obj, cell, parseInt(x), parseInt(y));
+
+    // Scrolling the content closes the editor, so bring a partially hidden cell fully into view now,
+    // otherwise focusing the editor scrolls it into view and closes the editor right away
+    if (obj.options.tableOverflow == true) {
+        scrollCellIntoView.call(obj, cell);
+    }
 
     // Overflow
     if (x > 0) {
@@ -106,10 +189,14 @@ export const openEditor = function (cell, empty, e) {
                     opened: true,
                     value: value,
                     width: '100%',
+                    maxWidth: (obj.options.columns[x].maxWidth || 750) + 'px',
                     height: editor.style.minHeight,
                     position: obj.options.tableOverflow == true || obj.parent.config.fullscreen == true ? true : false,
                     onclose: function () {
                         closeEditor.call(obj, cell, true);
+                    },
+                    onopen: function (el) {
+                        alignDropdownToContent.call(obj, cell, el);
                     },
                 };
                 if (obj.options.columns[x].options && obj.options.columns[x].options.type) {

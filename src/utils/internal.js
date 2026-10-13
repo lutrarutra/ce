@@ -5,10 +5,11 @@ import dispatch from './dispatch.js';
 import { refreshSelection, updateCornerPosition } from './selection.js';
 import { getColumnName } from './helpers.js';
 import { updateMeta } from './meta.js';
-import { getFreezeWidth } from './freeze.js';
+import { getFreezeWidth, getStickyIndexWidth } from './freeze.js';
 import { updatePagination } from './pagination.js';
 import { setFooter } from './footer.js';
 import { getColumnNameFromId, getIdFromColumnName } from './internalHelpers.js';
+import { fitColumns } from './columns.js';
 
 export const updateTable = function () {
     const obj = this;
@@ -1061,13 +1062,16 @@ export const updateScroll = function (direction) {
     // Freeze columns?
     const freezed = getFreezeWidth.call(obj);
 
+    // Cells under the sticky index column are out of the viewport
+    const stickyIndex = getStickyIndexWidth.call(obj);
+
     // Left position check - TODO: change that to the bottom border of the element
-    if (x > obj.content.scrollLeft + freezed && x < obj.content.scrollLeft + w1) {
+    if (x > obj.content.scrollLeft + freezed + stickyIndex && x < obj.content.scrollLeft + w1) {
         // In the viewport
     } else {
         // Out of viewport
-        if (x < obj.content.scrollLeft + 30) {
-            obj.content.scrollLeft = x;
+        if (x < obj.content.scrollLeft + 30 + stickyIndex) {
+            obj.content.scrollLeft = x - stickyIndex;
             if (obj.content.scrollLeft < 50) {
                 obj.content.scrollLeft = 0;
             }
@@ -1213,6 +1217,8 @@ export const showIndex = function () {
     const obj = this;
 
     obj.table.classList.remove('jss_hidden_index');
+
+    fitColumns.call(obj);
 };
 
 /**
@@ -1222,6 +1228,8 @@ export const hideIndex = function () {
     const obj = this;
 
     obj.table.classList.add('jss_hidden_index');
+
+    fitColumns.call(obj);
 };
 
 /**

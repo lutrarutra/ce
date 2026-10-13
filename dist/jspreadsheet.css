@@ -595,6 +595,31 @@
     display: none;
 }
 
+/* Sticky index column (option stickyIndex): the row numbers stay visible when scrolling horizontally. The
+   selection corner goes under the sticky cells, the header stays above the index column. The shadow draws the
+   right border, which the cells next to the index column provide while it is not scrolled */
+.jss_sticky_index > tbody > tr > td:first-child,
+.jss_sticky_index > tfoot > tr > td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-shadow: 1px 0 0 var(--border_color, #ccc);
+}
+
+.jss_sticky_index > thead > tr > td {
+    z-index: 3;
+}
+
+.jss_sticky_index > thead > tr > td:first-child {
+    left: 0;
+    z-index: 4;
+    box-shadow: 1px 0 0 var(--border_color, #ccc);
+}
+
+.jss_sticky_index ~ .jss_corner {
+    z-index: 1;
+}
+
 .jss_worksheet .jrating {
     display: inline-flex;
 }

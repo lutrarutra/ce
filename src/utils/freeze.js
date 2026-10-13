@@ -1,3 +1,14 @@
+// Width of the index column when it sticks to the left (option stickyIndex), 0 when it scrolls or is hidden
+export const getStickyIndexWidth = function () {
+    const obj = this;
+
+    if (!obj.options.stickyIndex || obj.table.classList.contains('jss_hidden_index')) {
+        return 0;
+    }
+
+    return parseInt(obj.colgroupContainer.children[0].getAttribute('width')) || 0;
+};
+
 // Get width of all freezed cells together
 export const getFreezeWidth = function () {
     const obj = this;
