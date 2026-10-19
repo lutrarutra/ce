@@ -745,7 +745,7 @@ const doubleClickControls = function (e) {
                 var y2 = libraryBase.jspreadsheet.current.records.length - 1;
 
                 // Find the last row with data in any column
-                var last_row_with_data = y1;
+                var last_row_with_data = -1;
                 for (let row = y1; row <= y2; row++) {
                     for (let col = 0; col < libraryBase.jspreadsheet.current.options.columns.length; col++) {
                         const cellValue = libraryBase.jspreadsheet.current.getValueFromCoords(col, row);
@@ -755,9 +755,11 @@ const doubleClickControls = function (e) {
                     }
                 }
 
-                if (y1 < last_row_with_data) {
-                    y2 = Math.min(last_row_with_data, y2);
+                // Nothing below the selection to fill up to (like Excel)
+                if (last_row_with_data < y1) {
+                    return;
                 }
+                y2 = last_row_with_data;
                 // Execute copy
                 copyData.call(
                     libraryBase.jspreadsheet.current,

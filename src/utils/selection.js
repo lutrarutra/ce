@@ -28,8 +28,8 @@ export const updateCornerPosition = function () {
         const w2 = lastRect.width;
         const h2 = lastRect.height;
 
-        const x = x2 - x1 + obj.content.scrollLeft + w2 - 4;
-        const y = y2 - y1 + obj.content.scrollTop + h2 - 4;
+        const x = x2 - x1 + obj.content.scrollLeft + w2 - 5;
+        const y = y2 - y1 + obj.content.scrollTop + h2 - 5;
 
         // Place the corner in the correct place
         obj.corner.style.top = y + 'px';

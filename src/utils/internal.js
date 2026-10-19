@@ -10,6 +10,7 @@ import { updatePagination } from './pagination.js';
 import { setFooter } from './footer.js';
 import { getColumnNameFromId, getIdFromColumnName } from './internalHelpers.js';
 import { fitColumns } from './columns.js';
+import { resolveDisambiguatedValue, scheduleDisambiguate } from './disambiguate.js';
 
 export const updateTable = function () {
     const obj = this;
@@ -458,6 +459,7 @@ export const createCell = function (i, j, value) {
             // Create dropdown cell
             td.classList.add('jss_dropdown');
             td.textContent = getDropDownValue.call(obj, i, value);
+            scheduleDisambiguate.call(obj, i);
         } else if (obj.options.columns && obj.options.columns[i] && obj.options.columns[i].type == 'color') {
             if (obj.options.columns[i].render == 'square') {
                 const color = document.createElement('div');
@@ -562,6 +564,9 @@ export const updateCell = function (x, y, value, force) {
             value = val;
         }
 
+        // Pasted or typed names of options become their ids
+        value = resolveDisambiguatedValue.call(obj, x, value);
+
         if (
             obj.options.columns &&
             obj.options.columns[x] &&
@@ -609,6 +614,7 @@ export const updateCell = function (x, y, value, force) {
                 // Update data and cell
                 obj.options.data[y][x] = value;
                 obj.records[y][x].element.textContent = getDropDownValue.call(obj, x, value);
+                scheduleDisambiguate.call(obj, x);
             } else if (obj.options.columns && obj.options.columns[x] && obj.options.columns[x].type == 'calendar') {
                 // Try formatted date
                 let formatted = null;

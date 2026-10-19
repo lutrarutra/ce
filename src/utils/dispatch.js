@@ -1,5 +1,7 @@
 import jSuites from 'jsuites';
 
+import { DISAMBIGUATE_EVENTS, scheduleDisambiguate } from './disambiguate.js';
+
 /**
  * Prepare JSON in the correct format
  */
@@ -89,6 +91,11 @@ const dispatch = function (event) {
                 }
             }
         }
+    }
+
+    // Rows (or columns) moved, added or removed: other cells may now share their shown name
+    if (DISAMBIGUATE_EVENTS.indexOf(event) >= 0) {
+        scheduleDisambiguate.call(obj);
     }
 
     if (event == 'onafterchanges') {
