@@ -6,15 +6,23 @@ import { loadPage } from './lazyLoading.js';
 import { closeFilter } from './filter.js';
 
 /**
- * Update order arrow
+ * Update order arrow, a column ordered by one of its named sortings shows the sorting title and direction instead.
+ * Without a column the order indicator is removed.
  */
-export const updateOrderArrow = function (column, order) {
+export const updateOrderArrow = function (column, order, title) {
     const obj = this;
 
     // Remove order
     for (let i = 0; i < obj.headers.length; i++) {
         obj.headers[i].classList.remove('arrow-up');
         obj.headers[i].classList.remove('arrow-down');
+        obj.headers[i].removeAttribute('data-order');
+    }
+
+    obj.orderState = column == null ? null : { column: column, order: order, title: title };
+
+    if (column == null) {
+        return;
     }
 
     // No order specified then toggle order
@@ -23,6 +31,37 @@ export const updateOrderArrow = function (column, order) {
     } else {
         obj.headers[column].classList.add('arrow-down');
     }
+
+    if (title) {
+        obj.headers[column].setAttribute('data-order', title + ' ' + jSuites.translate(order ? 'desc' : 'asc'));
+    }
+};
+
+/**
+ * The named sorting to order a column by when none is given: the column's current one, or its first. Without an order
+ * a column ordered descending goes on to the next sorting, so the header double click cycles through all of them.
+ */
+const getNamedSorting = function (column, order) {
+    const obj = this;
+    const sortings = obj.options.columns && obj.options.columns[column] && obj.options.columns[column].sortings;
+
+    if (!sortings || !sortings.length) {
+        return [null, order];
+    }
+
+    const current = obj.orderState && obj.orderState.column == column ? obj.orderState : null;
+    const index = current ? sortings.findIndex((sorting) => sorting.title === current.title) : -1;
+
+    if (index < 0) {
+        return [sortings[0], order == null ? 0 : order];
+    }
+    if (order == null) {
+        if (current.order) {
+            return [sortings[(index + 1) % sortings.length], 0];
+        }
+        return [sortings[index], 1];
+    }
+    return [sortings[index], order];
 };
 
 /**
@@ -83,7 +122,8 @@ export const updateOrder = function (rows) {
 };
 
 /**
- * Sort data and reload table, with the sorting option or the given sorting function
+ * Sort data and reload table, with the sorting option, the given sorting function or named sorting ({ title, sorting })
+ * of the column. Without a sorting a column with named sortings is ordered by one of them.
  */
 export const orderBy = function (column, order, sorting) {
     const obj = this;
@@ -97,6 +137,17 @@ export const orderBy = function (column, order, sorting) {
                 // Remove merged cells
                 obj.destroyMerge();
             }
+        }
+
+        // Named sorting
+        let named = null;
+        if (sorting && typeof sorting === 'object') {
+            named = sorting;
+        } else if (!sorting) {
+            [named, order] = getNamedSorting.call(obj, column, order);
+        }
+        if (named) {
+            sorting = named.sorting;
         }
 
         // Direction
@@ -118,7 +169,7 @@ export const orderBy = function (column, order, sorting) {
                 obj.options.columns[column].type == 'color')
         ) {
             for (let j = 0; j < obj.options.data.length; j++) {
-                temp[j] = [j, Number(obj.options.data[j][column])];
+                temp[j] = [j, Number(obj.options.data[j][column]), obj.options.data[j][column]];
             }
         } else if (
             obj.options.columns &&
@@ -126,11 +177,11 @@ export const orderBy = function (column, order, sorting) {
             (obj.options.columns[column].type == 'calendar' || obj.options.columns[column].type == 'checkbox' || obj.options.columns[column].type == 'radio')
         ) {
             for (let j = 0; j < obj.options.data.length; j++) {
-                temp[j] = [j, obj.options.data[j][column]];
+                temp[j] = [j, obj.options.data[j][column], obj.options.data[j][column]];
             }
         } else {
             for (let j = 0; j < obj.options.data.length; j++) {
-                temp[j] = [j, obj.records[j][column].element.textContent.toLowerCase()];
+                temp[j] = [j, obj.records[j][column].element.textContent.toLowerCase(), obj.options.data[j][column]];
             }
         }
 
@@ -164,10 +215,12 @@ export const orderBy = function (column, order, sorting) {
             rows: newValue,
             column: column,
             order: order,
+            title: named && named.title,
+            previous: obj.orderState || null,
         });
 
         // Update order
-        updateOrderArrow.call(obj, column, order);
+        updateOrderArrow.call(obj, column, order, named && named.title);
         updateOrder.call(obj, newValue);
 
         // On sort event

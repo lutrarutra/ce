@@ -33,6 +33,16 @@ You can define the sorting behaviour of your spreadsheet using the following pro
 | sorting: function                | Defines a custom sorting handler. Use this to implement your specific sorting logic.<br/>`sorting(direction: Boolean) : function` |
 | columnSorting: boolean           | Enables or disables column-based sorting for the spreadsheet.`Default: true`                                                      |
 
+Custom comparators receive entries of the form `[rowIndex, sortValue, rawValue]`. The sort value is the
+displayed text for text and custom-editor columns, a number for numeric columns, and the stored value for
+calendar, checkbox, and radio columns. The raw value is the original value in the worksheet data.
+`orderBy` also accepts an optional third argument: a `sorting(direction)` comparator factory, or one of the
+column's `{ title, sorting }` entries.
+Columns may specify a `sortings` array of `{ title, sorting }` entries to offer named ascending and descending
+sort actions in the column context menu. Double clicking the header of such a column goes through them in turn
+(first ascending, then descending, then the next entry), and the header shows the entry in use and its direction,
+e.g. `ID asc`, instead of the arrow.
+
 
 ## Examples
 

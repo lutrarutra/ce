@@ -141,7 +141,8 @@ declare namespace jspreadsheet {
 
         /**
          * Ways to order this column, offered in the context menu as "Order by {title} ascending/descending" instead
-         * of "Order ascending/descending".
+         * of "Order ascending/descending". Double clicking the header goes through them in turn, and the header shows
+         * the one in use and its direction ("{title} asc/desc") instead of the arrow.
          */
         sortings?: { title: string; sorting: (order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number }[];
 
@@ -1945,9 +1946,14 @@ declare namespace jspreadsheet {
          * This method returns false if the "This action will destroy any existing merged cells. Are you sure?" dialog receives a negative response, or returns true if the sort is successful.
          * @param column - Column index. If the value of this parameter is less than 0, the method returns false and does not perform sorting.
          * @param order - Sorting direction. 0 for ascending and 1 for descending.
-         * @param sorting - Sorting function for this call instead of {@link SpreadsheetOptions.sorting}.
+         * @param sorting - Sorting function, or one of the column's named sortings, for this call instead of {@link SpreadsheetOptions.sorting}.
+         * Without it a column with named sortings keeps its current one; without order as well it goes on to the next one after descending.
          */
-        orderBy: (column: number, order: 0 | 1, sorting?: (order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number) => boolean | undefined;
+        orderBy: (
+            column: number,
+            order?: 0 | 1,
+            sorting?: ((order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number) | { title: string; sorting: (order: 0 | 1) => (itemA: SortingItem, itemB: SortingItem) => number }
+        ) => boolean | undefined;
 
         /**
          * Go to page. Valid only when {@link WorksheetOptions.pagination} is true.

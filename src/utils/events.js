@@ -973,13 +973,13 @@ const defaultContextMenu = function (worksheet, x, y, role) {
                     items.push({
                         title: jSuites.translate('Order by') + ' ' + sorting.title + ' ' + jSuites.translate('ascending'),
                         onclick: function () {
-                            worksheet.orderBy(x, 0, sorting.sorting);
+                            worksheet.orderBy(x, 0, sorting);
                         },
                     });
                     items.push({
                         title: jSuites.translate('Order by') + ' ' + sorting.title + ' ' + jSuites.translate('descending'),
                         onclick: function () {
-                            worksheet.orderBy(x, 1, sorting.sorting);
+                            worksheet.orderBy(x, 1, sorting);
                         },
                     });
                 });

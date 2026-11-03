@@ -233,7 +233,12 @@ export const undo = function () {
             for (let j = 0; j < historyRecord.rows.length; j++) {
                 rows[historyRecord.rows[j]] = j;
             }
-            updateOrderArrow.call(obj, historyRecord.column, historyRecord.order ? 0 : 1);
+            const previous = historyRecord.previous;
+            if (previous) {
+                updateOrderArrow.call(obj, previous.column, previous.order, previous.title);
+            } else {
+                updateOrderArrow.call(obj, null);
+            }
             updateOrder.call(obj, rows);
         } else if (historyRecord.action == 'setValue') {
             // Redo for changes in cells
@@ -312,7 +317,7 @@ export const redo = function () {
         } else if (historyRecord.action == 'setComments') {
             obj.setComments(historyRecord.newValue);
         } else if (historyRecord.action == 'orderBy') {
-            updateOrderArrow.call(obj, historyRecord.column, historyRecord.order);
+            updateOrderArrow.call(obj, historyRecord.column, historyRecord.order, historyRecord.title);
             updateOrder.call(obj, historyRecord.rows);
         } else if (historyRecord.action == 'setValue') {
             obj.setValue(historyRecord.records);
