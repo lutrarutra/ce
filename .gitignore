@@ -2,3 +2,6 @@
 /package-lock.json
 node_modules
 /vue/package-lock.json
+# Build output, index.d.ts is written by hand
+/dist/*
+!/dist/index.d.ts
